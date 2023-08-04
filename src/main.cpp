@@ -15,8 +15,10 @@
 #define SENSITIVITY 100       // Define the sensitivity for detecting significant acceleration change
 #define SCAN_INTERVAL_MS 1000 // Scan interval for Bluetooth device check (1 second)
 
-const char *host = "esp32";
-const char *ssid = "iPhone von Jonas";
+// ----------------
+// Set your WiFi SSID and Password here
+// ----------------
+const char *ssid = "r3d3";
 const char *password = "12345678";
 
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
@@ -30,26 +32,14 @@ const char *root =
 void setup()
 {
   Serial.begin(115200);
-
-
-  // Connect to WiFi network
-  WiFi.begin(ssid, password);
-  Serial.println("");
-
-  // Wait for connection
-  while (WiFi.status() != WL_CONNECTED)
-  {
-    delay(500);
-    Serial.print(".");
-  }
-  Serial.println("");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
+  
+  // Initialize Wifi Ad-Hoc Network
+  WiFi.mode(WIFI_AP);
+  WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
+  WiFi.softAP(ssid, password);
 
   /*use mdns for host name resolution*/
-  if (!MDNS.begin(host))
+  if (!MDNS.begin(ssid))
   { // http://esp32.local
     Serial.println("Error setting up MDNS responder!");
     while (1)
@@ -99,7 +89,7 @@ void setup()
           }
         }
       });
-      
+
   server.begin();
 
   pinMode(LED_PIN, OUTPUT);
