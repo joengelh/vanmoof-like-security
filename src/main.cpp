@@ -1,24 +1,106 @@
 #include <Wire.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM303_U.h>
-#include <Servo.h>
 #include <BLEDevice.h>
 #include <BLEUtils.h>
 #include <BLEScan.h>
+#include <WiFi.h>
+#include <WiFiClient.h>
+#include <WebServer.h>
+#include <ESPmDNS.h>
+#include <Update.h>
 
 #define SPEAKER_PIN 9           // Define the pin number for the servo motor
 #define LED_PIN 2             // ESP32 built-in LED pin (GPIO 2)
 #define SENSITIVITY 100       // Define the sensitivity for detecting significant acceleration change
 #define SCAN_INTERVAL_MS 1000 // Scan interval for Bluetooth device check (1 second)
 
+const char *host = "esp32";
+const char *ssid = "iPhone von Jonas";
+const char *password = "12345678";
+
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
-Servo myServo;
 float lastAcceleration = 0;
 bool bluetoothDeviceFound = false;
+
+const char *root =
+#include "html/root.h"
+    ;
 
 void setup()
 {
   Serial.begin(115200);
+
+
+  // Connect to WiFi network
+  WiFi.begin(ssid, password);
+  Serial.println("");
+
+  // Wait for connection
+  while (WiFi.status() != WL_CONNECTED)
+  {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println("");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+
+  /*use mdns for host name resolution*/
+  if (!MDNS.begin(host))
+  { // http://esp32.local
+    Serial.println("Error setting up MDNS responder!");
+    while (1)
+    {
+      delay(1000);
+    }
+  }
+  Serial.println("mDNS responder started");
+
+  webServer.on("/", []()
+               { webServer.send(200, "text/html", root); });
+
+  webServer.on(
+      "/update", HTTP_POST, []()
+      {
+    webServer.sendHeader("Connection", "close");
+    webServer.send(200, "text/plain", (Update.hasError()) ? "FAIL" : "OK");
+    ESP.restart(); },
+      []()
+      {
+        HTTPUpload &upload = webServer.upload();
+        if (upload.status == UPLOAD_FILE_START)
+        {
+          Serial.printf("Update: %s\n", upload.filename.c_str());
+          if (!Update.begin(UPDATE_SIZE_UNKNOWN))
+          { // start with max available size
+            Update.printError(Serial);
+          }
+        }
+        else if (upload.status == UPLOAD_FILE_WRITE)
+        {
+          /* flashing firmware to ESP*/
+          if (Update.write(upload.buf, upload.currentSize) != upload.currentSize)
+          {
+            Update.printError(Serial);
+          }
+        }
+        else if (upload.status == UPLOAD_FILE_END)
+        {
+          if (Update.end(true))
+          { // true to set the size to the current progress
+            Serial.printf("Update Success: %u\nRebooting...\n", upload.totalSize);
+          }
+          else
+          {
+            Update.printError(Serial);
+          }
+        }
+      });
+      
+  server.begin();
 
   pinMode(LED_PIN, OUTPUT);
   pinMode(SPEAKER_PIN, OUTPUT);
@@ -69,7 +151,8 @@ void loop()
     blinkLED(5);       // Blink the LED rapidly for 5 seconds
   }
 
-  delay(500); // Add a delay to prevent rapid triggering
+  server.handleClient();
+  delay(1);
 }
 
 void checkBluetoothDevice()
