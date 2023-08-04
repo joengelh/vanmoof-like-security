@@ -6,7 +6,7 @@
 #include <BLEUtils.h>
 #include <BLEScan.h>
 
-#define SERVO_PIN 9           // Define the pin number for the servo motor
+#define SPEAKER_PIN 9           // Define the pin number for the servo motor
 #define LED_PIN 2             // ESP32 built-in LED pin (GPIO 2)
 #define SENSITIVITY 100       // Define the sensitivity for detecting significant acceleration change
 #define SCAN_INTERVAL_MS 1000 // Scan interval for Bluetooth device check (1 second)
@@ -18,7 +18,11 @@ bool bluetoothDeviceFound = false;
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
+
+  pinMode(LED_PIN, OUTPUT);
+  pinMode(SPEAKER_PIN, OUTPUT);
+  randomSeed(analogRead(0)); // Seed the random number generator
 
   // Initialize the LSM303 accelerometer
   if (!accel.begin())
@@ -27,11 +31,6 @@ void setup()
     while (1)
       ;
   }
-
-  myServo.attach(SERVO_PIN);
-  myServo.write(0); // Initial position of the servo (0 degrees)
-
-  pinMode(LED_PIN, OUTPUT);
 }
 
 void loop()
@@ -59,9 +58,15 @@ void loop()
   if (accelerationChange > SENSITIVITY && !bluetoothDeviceFound)
   {
     // Object is being stolen! Activate the servo motor and blink the LED.
-    myServo.write(90); // Rotate the servo to 90 degrees (you can adjust this angle as needed)
+    int frequency = random(200, 4001);
+
+    // Sound the alarm for 1 second
+    tone(SPEAKER_PIN, frequency);
+    delay(1000); // Sound the alarm for 1 second
+
+    // Turn off the speaker
+    noTone(SPEAKER_PIN);
     blinkLED(5);       // Blink the LED rapidly for 5 seconds
-    myServo.write(0);  // Return the servo to the initial position
   }
 
   delay(500); // Add a delay to prevent rapid triggering
