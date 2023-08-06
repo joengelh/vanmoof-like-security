@@ -7,10 +7,10 @@
 #include <WiFi.h>
 #include <WiFiClient.h>
 #include <WebServer.h>
-#include <ESPmDNS.h>
+#include <DNSServer.h>
 #include <Update.h>
 
-#define SPEAKER_PIN 9           // Define the pin number for the servo motor
+#define SPEAKER_PIN 14        // Define the pin number for the servo motor
 #define LED_PIN 2             // ESP32 built-in LED pin (GPIO 2)
 #define SENSITIVITY 100       // Define the sensitivity for detecting significant acceleration change
 #define SCAN_INTERVAL_MS 1000 // Scan interval for Bluetooth device check (1 second)
@@ -20,6 +20,11 @@
 // ----------------
 const char *ssid = "r3d3";
 const char *password = "12345678";
+
+const byte DNS_PORT = 53;
+IPAddress apIP(192, 168, 0, 1);
+DNSServer dnsServer;
+WebServer webServer(80);
 
 Adafruit_LSM303_Accel_Unified accel = Adafruit_LSM303_Accel_Unified(54321);
 float lastAcceleration = 0;
@@ -32,22 +37,11 @@ const char *root =
 void setup()
 {
   Serial.begin(115200);
-  
+
   // Initialize Wifi Ad-Hoc Network
   WiFi.mode(WIFI_AP);
   WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
   WiFi.softAP(ssid, password);
-
-  /*use mdns for host name resolution*/
-  if (!MDNS.begin(ssid))
-  { // http://esp32.local
-    Serial.println("Error setting up MDNS responder!");
-    while (1)
-    {
-      delay(1000);
-    }
-  }
-  Serial.println("mDNS responder started");
 
   webServer.on("/", []()
                { webServer.send(200, "text/html", root); });
@@ -138,10 +132,9 @@ void loop()
 
     // Turn off the speaker
     noTone(SPEAKER_PIN);
-    blinkLED(5);       // Blink the LED rapidly for 5 seconds
   }
 
-  server.handleClient();
+  webServer.handleClient();
   delay(1);
 }
 
